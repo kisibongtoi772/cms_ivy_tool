@@ -10,8 +10,11 @@ after installing all dependences sucessfully! To run application please run comm
 python pythonscript.py -f "excel_file_you_want_to_compare.xls" -p "path_to_cms_folder"
 
 '-f' option : the .xls you want to compare
+
 '-p' option : the path to cms folder
 
 example:
-python pythonscript.py -f "desk_individual_customer_abc.xls" -p "C:/WORK/workspace/desk_individual_customer_abc/cms"
+	python pythonscript.py -f "desk_individual_customer_abc.xls" -p "C:/WORK/workspace/desk_individual_customer_abc/cms"
+
+
 Note : You could put the desk_individual_customer_abc.xls file with the same with script or you absulute path
