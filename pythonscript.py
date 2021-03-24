@@ -1,12 +1,13 @@
+import getopt
 import glob
-from os.path import dirname, abspath, basename
-import os
-import xlrd
-import subprocess
-from pynput import keyboard
 import logging
-import threading
+import os
+import subprocess
 import sys
+from os.path import dirname, basename
+
+import xlrd
+from pynput import keyboard
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -40,6 +41,7 @@ def get_list_file_paths_from_url_and_extension(path, extensions):
         convert_list_file_path.append(convert_url_to_forward_slash(file_path_with_back_slash))
 
     logging.info("Finished getting paths recursively from path %s with extension %s", path, extensions)
+    logging.debug("Your list file path %s", convert_list_file_path)
     return convert_list_file_path
 
 
@@ -116,6 +118,33 @@ def setup_logger():
     logging.getLogger('').addHandler(handler)
 
 
+def handle_commandline_argument():
+    full_cmd_arguments = sys.argv
+
+    # Keep all but the first
+    argument_list = full_cmd_arguments[1:]
+    short_options = "hi:f:p:"
+    long_options = ["help", "input=", "file=", "path="]
+    try:
+        arguments, values = getopt.getopt(argument_list, short_options, long_options)
+        print(arguments)
+        for current_argument, current_value in arguments:
+            if current_argument in ("-p", "--path"):
+                provided_path = current_value
+                print("Enabling special path mode with value", current_value)
+            elif current_argument in ("-h", "--help"):
+                print("Displaying help")
+            elif current_argument in ("-f", "--file"):
+                provided_file = current_value
+            elif current_argument in ("-i", "--input"):
+                print("Enabling special input mode with value", current_value)
+        return provided_file, provided_path
+    except getopt.error as err:
+        # Output error, and return with an error code
+        print(str(err))
+        sys.exit(2)
+
+
 # ---------------------------------------------------------------------------------------------------
 # Timer utilities
 def open_program_by_path(path):
@@ -162,12 +191,24 @@ def trigger_key_listener():
         host_keys.join()
 
 
+# ----------------------------------------------------------------------------------------------------
+# process arguments
+def process_arguments_to_show_missing_key():
+    provided_file_to_handle, provided_path_to_handle = handle_commandline_argument()
+    print(provided_file_to_handle, provided_path_to_handle)
+    if not (provided_file_to_handle or provided_path_to_handle):
+        print("You are missing file or path argument! Please provide it!")
+    else:
+        print_missing_keys_from_path(provided_file_to_handle, provided_path_to_handle)
+
+
 # ---------------------------------------------------------------------------------------------------
 # main function
 if __name__ == '__main__':
     setup_logger()
-    print_extensions_from_path("C:/WORK/workspace/cob_portal_style/cms")
-    print_missing_keys_from_path("PortalStyle.xls", "C:/WORK/workspace/cob_portal_style/cms")
+    process_arguments_to_show_missing_key()
+    # print_extensions_from_path("C:/WORK/workspace/desk_individual_customer1/cms")
+    # print_missing_keys_from_path("desk_individual_customer1.xls", "C:/WORK/workspace/desk_individual_customer1/cms")
     # open_program_by_path("C:\Program Files (x86)\Google\Chrome\Application\chrome.exe")
 
 # ---------------------------------------------------------------------------------------------------
