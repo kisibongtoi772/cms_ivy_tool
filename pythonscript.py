@@ -1,3 +1,4 @@
+import enum
 import getopt
 import glob
 import logging
@@ -70,8 +71,7 @@ def convert_url_to_forward_slash(path):
 
 # ---------------------------------------------------------------------------------------------------
 # utilities
-def get_missing_relative_paths(excel_path, folder_path):
-    list_extension = [".jsp", ".data"]
+def get_missing_relative_paths(excel_path, folder_path, list_extension=[".jsp", ".data"]):
     list_file_path_from_excel = get_relative_paths_from_excel_file(excel_path)
     list_file_path_from_folder = get_list_file_paths_from_url_and_extension(folder_path, list_extension)
     key_info_dictionary, extension = get_info_from_list_file_path(list_file_path_from_folder)
@@ -118,35 +118,8 @@ def setup_logger():
     logging.getLogger('').addHandler(handler)
 
 
-def handle_commandline_argument():
-    full_cmd_arguments = sys.argv
-
-    # Keep all but the first
-    argument_list = full_cmd_arguments[1:]
-    short_options = "hi:f:p:"
-    long_options = ["help", "input=", "file=", "path="]
-    try:
-        arguments, values = getopt.getopt(argument_list, short_options, long_options)
-        print(arguments)
-        for current_argument, current_value in arguments:
-            if current_argument in ("-p", "--path"):
-                provided_path = current_value
-                print("Enabling special path mode with value", current_value)
-            elif current_argument in ("-h", "--help"):
-                print("Displaying help")
-            elif current_argument in ("-f", "--file"):
-                provided_file = current_value
-            elif current_argument in ("-i", "--input"):
-                print("Enabling special input mode with value", current_value)
-        return provided_file, provided_path
-    except getopt.error as err:
-        # Output error, and return with an error code
-        print(str(err))
-        sys.exit(2)
-
-
 # ---------------------------------------------------------------------------------------------------
-# Timer utilities
+# Timer utilities BETA
 def open_program_by_path(path):
     subprocess.call(path)
 
@@ -192,21 +165,91 @@ def trigger_key_listener():
 
 
 # ----------------------------------------------------------------------------------------------------
+# handle event/action
+class EventTypes(enum.Enum):
+    GetExtension = (1,
+                    'get extensions from the path',
+                    {'extension_path': ''},
+                    'To use this event\\action [GetExtension].'
+                    ' \\n You need to provide path contains all cms to scan all possible extension')
+    CompareFileAndPath = (2,
+                          'compare differ key between excel file with cms folder path',
+                          {'provided_path': '', 'provided_file': ''},
+                          'To use this event\\action [CompareFileAndPath].'
+                          ' \\n You need to provide path contains all cms with -p option '
+                          'for comparing with excel file with -f option')
+
+    def __init__(self, require_arguments, event_title, event_arguments, instruction_description):
+        self.require_arguments = require_arguments
+        self.event_title = event_title
+        self.event_arguments = event_arguments
+        self.instruction_description = instruction_description
+
+
+def map_arguments_to_event():
+    full_cmd_arguments = sys.argv
+
+    # Keep all but the first
+    # define list arguments
+    argument_list = full_cmd_arguments[1:]
+    short_options = "hi:f:p:e:"
+    long_options = ["help", "input=", "file=", "path=", "extension="]
+
+    events_to_handle = set()
+    try:
+        arguments, values = getopt.getopt(argument_list, short_options, long_options)
+        print(arguments)
+        for current_argument, current_value in arguments:
+            if current_argument in ("-p", "--path"):
+                provided_path = current_value
+                EventTypes.CompareFileAndPath.event_arguments['provided_path'] = provided_path
+                events_to_handle.add(EventTypes.CompareFileAndPath)
+                print("Enabling special path mode with value", current_value)
+            elif current_argument in ("-f", "--file"):
+                provided_file = current_value
+                EventTypes.CompareFileAndPath.event_arguments['provided_file'] = provided_file
+                events_to_handle.add(EventTypes.CompareFileAndPath)
+            elif current_argument in ("-h", "--help"):
+                print("Displaying help")
+            elif current_argument in ("-i", "--input"):
+                print("Enabling special input mode with value", current_value)
+            elif current_argument in ("-e", "--extension"):
+                extension_path = current_value
+                EventTypes.GetExtension.event_arguments['extension_path'] = extension_path
+                events_to_handle.add(EventTypes.GetExtension)
+                print("Enabling special input mode with value", current_value)
+        return events_to_handle
+    except getopt.error as err:
+        # Output error, and return with an error code
+        print(str(err))
+        sys.exit(2)
+
+
+def execute_event(event_type):
+    if '' in event_type.event_arguments.values():
+        print("You did not give enough argument to take the action :", event_type.event_title)
+        print("Type \"python pythonscript.py --help\" for more information")
+        return
+
+    if event_type == EventTypes.GetExtension:
+        print_extensions_from_path(event_type.event_arguments['extension_path'])
+    elif event_type == EventTypes.CompareFileAndPath:
+        print_missing_keys_from_path(event_type.event_arguments['provided_file'],
+                                     event_type.event_arguments['provided_path'])
+
+
 # process arguments
-def process_arguments_to_show_missing_key():
-    provided_file_to_handle, provided_path_to_handle = handle_commandline_argument()
-    print(provided_file_to_handle, provided_path_to_handle)
-    if not (provided_file_to_handle or provided_path_to_handle):
-        print("You are missing file or path argument! Please provide it!")
-    else:
-        print_missing_keys_from_path(provided_file_to_handle, provided_path_to_handle)
+def process_arguments():
+    events_to_handle = map_arguments_to_event()
+    for event in events_to_handle:
+        execute_event(event)
 
 
 # ---------------------------------------------------------------------------------------------------
 # main function
 if __name__ == '__main__':
     setup_logger()
-    process_arguments_to_show_missing_key()
+    process_arguments()
     # print_extensions_from_path("C:/WORK/workspace/desk_individual_customer1/cms")
     # print_missing_keys_from_path("desk_individual_customer1.xls", "C:/WORK/workspace/desk_individual_customer1/cms")
     # open_program_by_path("C:\Program Files (x86)\Google\Chrome\Application\chrome.exe")
