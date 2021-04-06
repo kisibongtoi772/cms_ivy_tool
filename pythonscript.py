@@ -3,12 +3,10 @@ import getopt
 import glob
 import logging
 import os
-import subprocess
 import sys
 from os.path import dirname, basename
 
 import xlrd
-from pynput import keyboard
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -20,9 +18,9 @@ def get_relative_paths_from_excel_file(file_path):
     work_book = xlrd.open_workbook(file_path)
     sheet = work_book.sheet_by_index(0)
 
-    last_column_index = sheet.ncols - 1
-    for index in range(sheet.nrows):
-        relative_paths_from_excel_file.append(sheet.cell_value(index, last_column_index))
+    last_column = sheet.ncols - 1
+    for row in range(sheet.nrows):
+        relative_paths_from_excel_file.append(sheet.cell_value(row, last_column))
     logging.info("Finished getting relative paths from file %s ", file_path)
     return relative_paths_from_excel_file
 
@@ -72,14 +70,15 @@ def convert_url_to_forward_slash(path):
 # ---------------------------------------------------------------------------------------------------
 # utilities
 def get_missing_relative_paths(excel_path, folder_path, list_extension=[".jsp", ".data"]):
-    list_file_path_from_excel = get_relative_paths_from_excel_file(excel_path)
+    list_file_relative_path_from_excel = get_relative_paths_from_excel_file(excel_path)
+
     list_file_path_from_folder = get_list_file_paths_from_url_and_extension(folder_path, list_extension)
     key_info_dictionary, extension = get_info_from_list_file_path(list_file_path_from_folder)
-    relative_paths = key_info_dictionary.keys()
+    list_relative_path_from_folder = key_info_dictionary.keys()
 
     logging.info("Starting compare relative paths from %s with %s", excel_path, folder_path)
-    missing_relative_paths = set(list_file_path_from_excel).symmetric_difference(
-        set(relative_paths))
+    missing_relative_paths = set(list_file_relative_path_from_excel).symmetric_difference(
+        set(list_relative_path_from_folder))
 
     logging.info("Your missing relative path size %s", len(missing_relative_paths))
     return sorted(missing_relative_paths)
@@ -116,52 +115,6 @@ def setup_logger():
     log_format = logging.Formatter('[%(asctime)s] [%(levelname)s] - %(message)s')
     handler.setFormatter(log_format)
     logging.getLogger('').addHandler(handler)
-
-
-# ---------------------------------------------------------------------------------------------------
-# Timer utilities BETA
-def open_program_by_path(path):
-    subprocess.call(path)
-
-
-def on_press(key):
-    if key == keyboard.Key.esc:
-        print(key)
-        return False  # stop listener
-    try:
-        print(key)
-        k = key.char  # single-char keys
-    except AttributeError:
-        k = key.name  # other keys
-    if k in ['1', '2', 'left', 'right']:  # keys of interest
-        # self.keys.append(k)  # store it in global-like variable
-        print('Key pressed: ' + k)
-        return True  # stop listener; remove this if want more keys
-
-
-def on_release(key):
-    print('{0} released'.format(
-        key))
-    if key == keyboard.Key.esc:
-        # Stop listener
-        return False
-
-
-def on_activate_h():
-    print('<ctrl>+<alt>+h pressed')
-
-
-def on_activate_i():
-    print('<ctrl>+<alt>+i pressed')
-
-
-def trigger_key_listener():
-    listener = {
-        '<ctrl>+<alt>+h': on_activate_h,
-        '<ctrl>+<alt>+i': on_activate_i,
-    }
-    with keyboard.GlobalHotKeys(listener) as host_keys:
-        host_keys.join()
 
 
 # ----------------------------------------------------------------------------------------------------
@@ -244,14 +197,54 @@ def process_arguments():
     for event in events_to_handle:
         execute_event(event)
 
+from numpy import inf
+
+graph = {'A': {'C': 5, 'D': 1, 'E': 2}, 'B': {'H': 1, 'G': 3}, 'C': {'I': 2, 'D': 3, 'A': 5},
+         'D': {'C': 3, 'A': 1, 'H': 2}, 'E': {'A': 2, 'F': 3},
+         'F': {'E': 3, 'G': 1}, 'G': {'F': 1, 'B': 3, 'H': 2}, 'H': {'I': 2, 'D': 2, 'B': 1, 'G': 2},
+         'I': {'C': 2, 'H': 2}}
+
+costs = {'A': 0, 'B': inf, 'C': inf, 'D': inf, 'E': inf, 'F': inf, 'G': inf, 'H': inf, 'I': inf}
+
+parents = {}
+
+
+def search(source, target, graph, costs, parents):
+    nextNode = source
+    while nextNode != target:
+        for neighbor in graph[nextNode]:
+            if graph[nextNode][neighbor] + costs[nextNode] < costs[neighbor]:
+                print("belong to nextNode and neighbor", nextNode, neighbor,  graph[nextNode][neighbor], costs[nextNode], costs[neighbor])
+                costs[neighbor] = graph[nextNode][neighbor] + costs[nextNode]
+                parents[neighbor] = nextNode
+            del graph[neighbor][nextNode]
+        del costs[nextNode]
+        nextNode = min(costs, key=costs.get)
+    return parents
+
+def backpedal(source, target, searchResult):
+    node = target
+    backpath = [target]
+    path = []
+    while node != source:
+        backpath.append(searchResult[node])
+        node = searchResult[node]
+    for i in range(len(backpath)):
+        path.append(backpath[-i - 1])
+
+    return path
+
 
 # ---------------------------------------------------------------------------------------------------
 # main function
 if __name__ == '__main__':
-    setup_logger()
-    process_arguments()
+    # setup_logger()
+    # process_arguments()
     # print_extensions_from_path("C:/WORK/workspace/desk_individual_customer1/cms")
     # print_missing_keys_from_path("desk_individual_customer1.xls", "C:/WORK/workspace/desk_individual_customer1/cms")
     # open_program_by_path("C:\Program Files (x86)\Google\Chrome\Application\chrome.exe")
+    result = search('A', 'B', graph, costs, parents)
+    # print('parent dictionary={}'.format(result))
+    # print('longest path={}'.format(backpedal('A', 'B', result)))
 
 # ---------------------------------------------------------------------------------------------------
