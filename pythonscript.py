@@ -67,6 +67,13 @@ def convert_url_to_forward_slash(path):
     return path.replace('\\', '/')
 
 
+def read_file_txt_cms(path):
+    with open(path) as text_cms_file:
+        content = text_cms_file.readlines()
+    # you may also want to remove whitespace characters like `\n` at the end of each line
+    # content = [x.strip() for x in content]
+    return set(content)
+
 # ---------------------------------------------------------------------------------------------------
 # utilities
 def get_missing_relative_paths(excel_path, folder_path, list_extension=[".jsp", ".data"]):
@@ -79,7 +86,8 @@ def get_missing_relative_paths(excel_path, folder_path, list_extension=[".jsp", 
     logging.info("Starting compare relative paths from %s with %s", excel_path, folder_path)
     missing_relative_paths = set(list_file_relative_path_from_excel).symmetric_difference(
         set(list_relative_path_from_folder))
-
+    # missing_relative_paths = set(list_file_relative_path_from_excel).difference(
+    #     set(list_relative_path_from_folder))
     logging.info("Your missing relative path size %s", len(missing_relative_paths))
     return sorted(missing_relative_paths)
 
@@ -137,6 +145,9 @@ class EventTypes(enum.Enum):
         self.event_title = event_title
         self.event_arguments = event_arguments
         self.instruction_description = instruction_description
+    
+    def is_event_valid(self):
+        return '' not in self.event_arguments.values()
 
 
 def map_arguments_to_event():
@@ -151,7 +162,7 @@ def map_arguments_to_event():
     events_to_handle = set()
     try:
         arguments, values = getopt.getopt(argument_list, short_options, long_options)
-        print(arguments)
+        print("Arguments:",arguments)
         for current_argument, current_value in arguments:
             if current_argument in ("-p", "--path"):
                 provided_path = current_value
@@ -164,13 +175,19 @@ def map_arguments_to_event():
                 events_to_handle.add(EventTypes.CompareFileAndPath)
             elif current_argument in ("-h", "--help"):
                 print("Displaying help")
+                print("If you want to compare exported excel file vs cms path to make sure there is no missing cms which is not exported.\n"
+                      "Run the script below:\n"
+                      "     pythonscript.py -f mobile_individual_customer1.xls -p C:/WORK/workspace_real1/mobile_individual_customer1/cms")
+                print("If you want to show all extension of cms file in specific module.\n"
+                      "Run the script below:\n"
+                      "     pythonscript.py -e C:/WORK/workspace_real1/mobile_individual_customer1/cms")
             elif current_argument in ("-i", "--input"):
                 print("Enabling special input mode with value", current_value)
             elif current_argument in ("-e", "--extension"):
                 extension_path = current_value
                 EventTypes.GetExtension.event_arguments['extension_path'] = extension_path
                 events_to_handle.add(EventTypes.GetExtension)
-                print("Enabling special input mode with value", current_value)
+                print("Enabling special extension mode with value", current_value)
         return events_to_handle
     except getopt.error as err:
         # Output error, and return with an error code
@@ -179,7 +196,7 @@ def map_arguments_to_event():
 
 
 def execute_event(event_type):
-    if '' in event_type.event_arguments.values():
+    if not event_type.is_event_valid():
         print("You did not give enough argument to take the action :", event_type.event_title)
         print("Type \"python pythonscript.py --help\" for more information")
         return
@@ -196,6 +213,7 @@ def process_arguments():
     events_to_handle = map_arguments_to_event()
     for event in events_to_handle:
         execute_event(event)
+
 
 from numpy import inf
 
@@ -214,13 +232,15 @@ def search(source, target, graph, costs, parents):
     while nextNode != target:
         for neighbor in graph[nextNode]:
             if graph[nextNode][neighbor] + costs[nextNode] < costs[neighbor]:
-                print("belong to nextNode and neighbor", nextNode, neighbor,  graph[nextNode][neighbor], costs[nextNode], costs[neighbor])
+                print("belong to nextNode and neighbor", nextNode, neighbor, graph[nextNode][neighbor], costs[nextNode],
+                      costs[neighbor])
                 costs[neighbor] = graph[nextNode][neighbor] + costs[nextNode]
                 parents[neighbor] = nextNode
             del graph[neighbor][nextNode]
         del costs[nextNode]
         nextNode = min(costs, key=costs.get)
     return parents
+
 
 def backpedal(source, target, searchResult):
     node = target
@@ -236,15 +256,68 @@ def backpedal(source, target, searchResult):
 
 
 # ---------------------------------------------------------------------------------------------------
+from injector import Injector, inject, Module, provider, InstanceProvider
+
+
+class Inner:
+    def __init__(self):
+        self.forty_two = 2
+
+
+class Outer:
+    @inject
+    def __init__(self, inner: Inner):
+        self.inner = inner
+
+
+class User:
+    def __init__(self, name="manh", age=100):
+        self.user_name = name
+        self.user_age = age
+
+
+class MyModule(Module):
+    def configure(self, binder):
+        binder.bind(User, to=User("lala", 200))
+
+    # @provider
+    # def describe(self) -> User:
+    #     return User("lala", 200)
+
+
+class Customize:
+    @inject
+    def __init__(self, user: User):
+        self.user = user
+
+    def print_value(self):
+        print(self.user.user_name, "-", self.user.user_age)
+
+
+# ---------------------------------------------------------------------------------------------------
 # main function
 if __name__ == '__main__':
-    # setup_logger()
-    # process_arguments()
+    # injector_customize = Injector([MyModule()])
+    # default_injector = Injector()
+    # default = default_injector.get(User)
+    # print(default.user_name, "-", default.user_age)
+    # user_customize = injector_customize.get(Customize)
+    # user_customize.print_value()
+    # print(id(injector_customize) == id(default))
+
     # print_extensions_from_path("C:/WORK/workspace/desk_individual_customer1/cms")
-    # print_missing_keys_from_path("desk_individual_customer1.xls", "C:/WORK/workspace/desk_individual_customer1/cms")
+    # print_missing_keys_from_path("mobile_individual_customer1.xls", "C:/WORK/workspace_real1/mobile_individual_customer1/cms")
     # open_program_by_path("C:\Program Files (x86)\Google\Chrome\Application\chrome.exe")
-    result = search('A', 'B', graph, costs, parents)
+    # result = search('A', 'B', graph, costs, parents)
     # print('parent dictionary={}'.format(result))
     # print('longest path={}'.format(backpedal('A', 'B', result)))
-
+ 
+    # first_file = read_file_txt_cms("filtered_cms.txt")
+    # second_file = read_file_txt_cms("exported_cms.txt")
+    # difference_cms = first_file.difference(second_file)
+    # for cms in difference_cms:
+    #     print(cms)
+    
+    setup_logger()
+    process_arguments()
 # ---------------------------------------------------------------------------------------------------
