@@ -13,6 +13,7 @@ python pythonscript.py -f "excel_file_you_want_to_compare.xls" -p "path_to_cms_f
 
 '-p' option : the path to cms folder
 
+'-e' option : the path to cms folder to check cms extension
 example:
 	python pythonscript.py -f "desk_individual_customer_abc.xls" -p "C:/WORK/workspace/desk_individual_customer_abc/cms"
 
